@@ -1,0 +1,25 @@
+<div class="h-screen w-screen flex flex-col overflow-hidden bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 font-sans select-none">
+  <!-- Top Navigation & Control Toolbar (Always visible in canvas mode) -->
+  @if (store.viewMode() === 'canvas') {
+    <app-top-toolbar></app-top-toolbar>
+
+    <!-- Canvas Layout with Left Creation Dock & Infinite Canvas -->
+    <div class="flex-1 flex overflow-hidden relative">
+      <app-left-toolbar></app-left-toolbar>
+      <app-canvas-workspace></app-canvas-workspace>
+      <app-bottom-floating-toolbar></app-bottom-floating-toolbar>
+      <app-minimap></app-minimap>
+    </div>
+  } @else {
+    <!-- Dashboard View (Projects, Templates, Search) -->
+    <app-dashboard-view></app-dashboard-view>
+  }
+
+  <!-- Modals & Overlays -->
+  <app-galaxy-companion-modal></app-galaxy-companion-modal>
+  <app-galaxy-phone-simulator></app-galaxy-phone-simulator>
+  <app-presentation-overlay></app-presentation-overlay>
+  <app-templates-modal></app-templates-modal>
+  <app-share-modal></app-share-modal>
+  <app-shortcuts-modal></app-shortcuts-modal>
+</div>

@@ -1,0 +1,7 @@
+{
+  "name": "FlowBoard",
+  "description": "Infinite whiteboard for visual planning, mind maps, touchscreen stylus drawing, and Galaxy Note9 companion control.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

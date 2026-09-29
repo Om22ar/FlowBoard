@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+@import "tailwindcss";
+
+:root {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overscroll-behavior: none;
+  touch-action: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Material Icons vertically aligned */
+.material-icons {
+  display: inline-flex;
+  vertical-align: middle;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hide scrollbars on canvas view while allowing scrolling in lists */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Print styles for exporting whiteboard */
+@media print {
+  header, aside, .fixed {
+    display: none !important;
+  }
+  body, html {
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+}
