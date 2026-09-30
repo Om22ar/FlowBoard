@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, ViewChild, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, HostListener, ViewChild, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { CanvasObject, ShapeType, ToolType } from '../models/whiteboard.models';
@@ -57,14 +57,14 @@ import { WhiteboardStore } from '../services/whiteboard-store';
       <div class="flex flex-col items-center">
         <span class="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 h-3 leading-3 tracking-wide">⇧ T</span>
         <button
-          (click)="addTaskCard()"
-          title="Task Card (Shift+T)"
+          (click)="toggleTasksDocsPanel()"
+          title="Tasks & Docs Panel (Shift+T)"
           class="w-8 h-8 rounded-lg flex items-center justify-center transition-all cursor-pointer relative"
-          [class.bg-[#e5e7eb]]="store.activeTool() === 'task'"
-          [class.dark:bg-neutral-800]="store.activeTool() === 'task'"
-          [class.shadow-2xs]="store.activeTool() === 'task'"
-          [class.hover:bg-neutral-100]="store.activeTool() !== 'task'"
-          [class.dark:hover:bg-neutral-800/60]="store.activeTool() !== 'task'"
+          [class.bg-[#e5e7eb]]="store.showTasksDocsModal()"
+          [class.dark:bg-neutral-800]="store.showTasksDocsModal()"
+          [class.shadow-2xs]="store.showTasksDocsModal()"
+          [class.hover:bg-neutral-100]="!store.showTasksDocsModal()"
+          [class.dark:hover:bg-neutral-800/60]="!store.showTasksDocsModal()"
         >
           <div class="relative w-7 h-7 flex items-center justify-center">
             <!-- Back stacked card -->
@@ -149,23 +149,189 @@ import { WhiteboardStore } from '../services/whiteboard-store';
       </div>
 
       <!-- 6. ARROW / CONNECTOR (A) -->
-      <div class="flex flex-col items-center">
+      <div class="flex flex-col items-center relative">
         <span class="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 h-3 leading-3 tracking-wide">A</span>
         <button
-          (click)="addArrow()"
-          title="Arrow Connector (A)"
+          (click)="toggleConnectorTray()"
+          title="Arrow Connector Settings (A)"
           class="w-8 h-8 rounded-lg flex items-center justify-center transition-all cursor-pointer relative"
-          [class.bg-[#e5e7eb]]="store.activeTool() === 'arrow'"
-          [class.dark:bg-neutral-800]="store.activeTool() === 'arrow'"
-          [class.shadow-2xs]="store.activeTool() === 'arrow'"
-          [class.hover:bg-neutral-100]="store.activeTool() !== 'arrow'"
-          [class.dark:hover:bg-neutral-800/60]="store.activeTool() !== 'arrow'"
+          [class.bg-[#e5e7eb]]="store.showConnectorTray()"
+          [class.dark:bg-neutral-800]="store.showConnectorTray()"
+          [class.shadow-2xs]="store.showConnectorTray()"
+          [class.hover:bg-neutral-100]="!store.showConnectorTray()"
+          [class.dark:hover:bg-neutral-800/60]="!store.showConnectorTray()"
         >
           <svg class="w-5 h-6 text-[#2b303a] dark:text-neutral-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="20" x2="12" y2="5"/>
             <polyline points="6 11 12 5 18 11"/>
           </svg>
         </button>
+
+        <!-- Connector Submenu / Tray (Horizontal Bar matching image.png) -->
+        @if (store.showConnectorTray()) {
+          <div class="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 bg-white/95 dark:bg-[#1a1b1e]/95 border border-neutral-200/90 dark:border-neutral-800 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12),0_1px_3px_rgba(0,0,0,0.04)] px-2.5 py-1.5 flex items-center gap-1 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 duration-150 z-50">
+            
+            <!-- 1. Start Arrowhead Dropdown -->
+            <div class="relative">
+              <button
+                (click)="showStartArrowPopup.set(!showStartArrowPopup())"
+                class="h-7 px-1.5 rounded-lg flex items-center gap-0.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 transition-colors"
+                [class.bg-neutral-100]="showStartArrowPopup()"
+              >
+                @if (store.defaultArrowStart()) {
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="12 19 5 12 12 5"/><line x1="5" y1="12" x2="20" y2="12"/></svg>
+                } @else {
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="4" y1="12" x2="20" y2="12"/></svg>
+                }
+                <svg class="w-2.5 h-2.5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+
+              @if (showStartArrowPopup()) {
+                <div class="absolute bottom-full mb-2 left-0 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-2xl p-1 flex items-center gap-1 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <button (click)="store.defaultArrowStart.set(false); showStartArrowPopup.set(false)" class="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800" [class.bg-blue-50]="!store.defaultArrowStart()">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="4" y1="12" x2="20" y2="12"/></svg>
+                  </button>
+                  <button (click)="store.defaultArrowStart.set(true); showStartArrowPopup.set(false)" class="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800" [class.bg-blue-50]="store.defaultArrowStart()">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="12 19 5 12 12 5"/><line x1="5" y1="12" x2="20" y2="12"/></svg>
+                  </button>
+                </div>
+              }
+            </div>
+
+            <!-- 2. Routing Style Dropdown -->
+            <div class="relative">
+              <button
+                (click)="showRoutingPopup.set(!showRoutingPopup())"
+                class="h-7 px-1.5 rounded-lg flex items-center gap-0.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 transition-colors"
+                [class.bg-neutral-100]="showRoutingPopup()"
+              >
+                @if (store.defaultConnectorType() === 'orthogonal') {
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18 L12 18 L12 6 L21 6"/></svg>
+                } @else if (store.defaultConnectorType() === 'straight') {
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"/></svg>
+                } @else {
+                  <span class="font-serif italic font-bold text-sm leading-none px-0.5">∫</span>
+                }
+                <svg class="w-2.5 h-2.5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+
+              @if (showRoutingPopup()) {
+                <div class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-2xl p-1 flex items-center gap-1 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <button (click)="store.defaultConnectorType.set('straight'); showRoutingPopup.set(false)" class="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800" [class.bg-blue-50]="store.defaultConnectorType() === 'straight'">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"/></svg>
+                  </button>
+                  <button (click)="store.defaultConnectorType.set('orthogonal'); showRoutingPopup.set(false)" class="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800" [class.bg-blue-50]="store.defaultConnectorType() === 'orthogonal'">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18 L12 18 L12 6 L21 6"/></svg>
+                  </button>
+                  <button (click)="store.defaultConnectorType.set('curved'); showRoutingPopup.set(false)" class="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800" [class.bg-blue-50]="store.defaultConnectorType() === 'curved'">
+                    <span class="font-serif italic font-bold text-sm">∫</span>
+                  </button>
+                </div>
+              }
+            </div>
+
+            <!-- 3. End Arrowhead Dropdown -->
+            <div class="relative">
+              <button
+                (click)="showEndArrowPopup.set(!showEndArrowPopup())"
+                class="h-7 px-1.5 rounded-lg flex items-center gap-0.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 transition-colors"
+                [class.bg-neutral-100]="showEndArrowPopup()"
+              >
+                @if (store.defaultArrowEnd()) {
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="12 5 19 12 12 19"/><line x1="19" y1="12" x2="4" y2="12"/></svg>
+                } @else {
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="4" y1="12" x2="20" y2="12"/></svg>
+                }
+                <svg class="w-2.5 h-2.5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+
+              @if (showEndArrowPopup()) {
+                <div class="absolute bottom-full mb-2 right-0 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-2xl p-1 flex items-center gap-1 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <button (click)="store.defaultArrowEnd.set(true); showEndArrowPopup.set(false)" class="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800" [class.bg-blue-50]="store.defaultArrowEnd()">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="12 5 19 12 12 19"/><line x1="19" y1="12" x2="4" y2="12"/></svg>
+                  </button>
+                  <button (click)="store.defaultArrowEnd.set(false); showEndArrowPopup.set(false)" class="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800" [class.bg-blue-50]="!store.defaultArrowEnd()">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="4" y1="12" x2="20" y2="12"/></svg>
+                  </button>
+                </div>
+              }
+            </div>
+
+            <!-- 4. Color Swatch Circle -->
+            <div class="relative">
+              <button
+                (click)="showColorPalettePopup.set(!showColorPalettePopup())"
+                class="h-7 px-1.5 rounded-lg flex items-center gap-1 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                [class.bg-neutral-100]="showColorPalettePopup()"
+              >
+                <div class="w-4.5 h-4.5 rounded-full shadow-2xs border border-black/10" [style.background-color]="store.penColor()"></div>
+                <svg class="w-2.5 h-2.5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+
+              @if (showColorPalettePopup()) {
+                <div class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-2xl p-2 flex flex-col gap-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div class="grid grid-cols-6 gap-1.5">
+                    @for (c of palette; track c) {
+                      <button (click)="store.penColor.set(c); showColorPalettePopup.set(false)" [attr.aria-label]="'Set color ' + c" class="w-6 h-6 rounded-full border border-black/10 hover:scale-110 transition-transform" [style.background-color]="c" [class.ring-2]="store.penColor() === c" [class.ring-blue-600]="store.penColor() === c"></button>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- 5. Stroke Dropdown -->
+            <div class="relative">
+              <button
+                (click)="showStrokePopup.set(!showStrokePopup())"
+                class="h-7 px-1.5 rounded-lg flex items-center gap-1 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-neutral-700 dark:text-neutral-200"
+                [class.bg-neutral-100]="showStrokePopup()"
+              >
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 20 L20 4 M14 20 L20 14"/></svg>
+                <svg class="w-2.5 h-2.5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+
+              @if (showStrokePopup()) {
+                <div class="absolute bottom-full mb-2 right-0 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-2xl p-2 flex flex-col gap-2 z-50 animate-in fade-in zoom-in-95 duration-100 min-w-[140px]">
+                  <div class="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Thickness</div>
+                  <div class="grid grid-cols-4 gap-1">
+                    @for (w of [1.5, 3, 6, 10]; track w) {
+                      <button (click)="store.strokeWidth.set(w); showStrokePopup.set(false)" class="py-1 rounded-lg border border-neutral-200 flex items-center justify-center" [class.bg-blue-50]="store.strokeWidth() === w">
+                        <div class="bg-neutral-800 dark:bg-neutral-200 rounded-full" [style.height.px]="w" [style.width.px]="16"></div>
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- 6. Font Dropdown (Aa) -->
+            <div class="relative">
+              <button
+                (click)="showFontPopup.set(!showFontPopup())"
+                class="h-7 px-1.5 rounded-lg flex items-center gap-1 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-neutral-700 dark:text-neutral-200"
+                [class.bg-neutral-100]="showFontPopup()"
+              >
+                <span class="font-serif italic font-bold text-sm tracking-tighter">Aa</span>
+                <svg class="w-2.5 h-2.5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+
+              @if (showFontPopup()) {
+                <div class="absolute bottom-full mb-2 right-0 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-2xl p-2 flex flex-col gap-1 z-50 animate-in fade-in zoom-in-95 duration-100 min-w-[120px]">
+                   <div class="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Text Setup</div>
+                   <button (click)="addArrow(); showFontPopup.set(false)" class="w-full py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-bold">Place Connector</button>
+                </div>
+              }
+            </div>
+
+            <!-- Vertical Divider -->
+            <div class="w-px h-4 bg-neutral-200 dark:bg-neutral-800 mx-0.5"></div>
+
+            <!-- Close Button -->
+            <button (click)="store.showConnectorTray.set(false)" class="h-7 w-7 rounded-lg flex items-center justify-center hover:bg-rose-50 text-neutral-400 hover:text-rose-500 transition-colors">
+              <mat-icon class="text-sm">close</mat-icon>
+            </button>
+          </div>
+        }
       </div>
 
       <!-- 7. STICKY NOTE (N) -->
@@ -335,11 +501,60 @@ export class FloatingToolDock {
   readonly store = inject(WhiteboardStore);
   readonly showShapeMenu = signal<boolean>(false);
 
+  // Connector Tray Popup States
+  readonly showStartArrowPopup = signal<boolean>(false);
+  readonly showRoutingPopup = signal<boolean>(false);
+  readonly showEndArrowPopup = signal<boolean>(false);
+  readonly showColorPalettePopup = signal<boolean>(false);
+  readonly showStrokePopup = signal<boolean>(false);
+  readonly showFontPopup = signal<boolean>(false);
+
+  // Exact 12-color palette from Image 1 & 2
+  readonly palette = [
+    '#ef4444', '#ec4899', '#f97316', '#eab308', '#059669', '#86efac',
+    '#2563eb', '#93c5fd', '#7c3aed', '#c4b5fd', '#64748b', '#1e293b'
+  ];
+
+  @HostListener('document:click', ['$event'])
+  onDocClick(e: MouseEvent): void {
+    const target = e.target as HTMLElement;
+    if (!target.closest('.relative')) {
+      this.closeAllConnectorPopups();
+    }
+  }
+
+  closeAllConnectorPopups(): void {
+    this.showStartArrowPopup.set(false);
+    this.showRoutingPopup.set(false);
+    this.showEndArrowPopup.set(false);
+    this.showColorPalettePopup.set(false);
+    this.showStrokePopup.set(false);
+    this.showFontPopup.set(false);
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  onWindowKeyDown(e: KeyboardEvent): void {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      return;
+    }
+    if (e.shiftKey && e.key.toUpperCase() === 'T') {
+      e.preventDefault();
+      this.toggleTasksDocsPanel();
+    }
+  }
+
+  toggleTasksDocsPanel(): void {
+    this.store.showTasksDocsModal.update((v) => !v);
+    this.store.showPenTray.set(false);
+    this.showShapeMenu.set(false);
+  }
+
   isPenActive(): boolean {
     return ['pen', 'pencil', 'highlighter'].includes(this.store.activeTool());
   }
 
   togglePenTray(): void {
+    this.store.showTasksDocsModal.set(false);
     const isDrawing = this.isPenActive();
     if (!isDrawing) {
       this.store.activeTool.set('pen');
@@ -354,6 +569,7 @@ export class FloatingToolDock {
   setTool(tool: ToolType): void {
     this.store.activeTool.set(tool);
     this.showShapeMenu.set(false);
+    this.store.showTasksDocsModal.set(false);
     if (!['pen', 'pencil', 'highlighter'].includes(tool)) {
       this.store.showPenTray.set(false);
     }
@@ -361,6 +577,7 @@ export class FloatingToolDock {
 
   toggleShapeMenu(): void {
     this.store.showPenTray.set(false);
+    this.store.showTasksDocsModal.set(false);
     if (this.store.activeTool() !== 'shape') {
       this.store.activeTool.set('shape');
       this.showShapeMenu.set(true);
@@ -374,6 +591,7 @@ export class FloatingToolDock {
     this.store.activeTool.set('shape');
     this.showShapeMenu.set(false);
     this.store.showPenTray.set(false);
+    this.store.showTasksDocsModal.set(false);
   }
 
   addTaskCard(): void {
@@ -507,34 +725,53 @@ export class FloatingToolDock {
     const vp = this.store.currentBoard().viewport;
     const screenW = typeof window !== 'undefined' ? window.innerWidth : 1200;
     const screenH = typeof window !== 'undefined' ? window.innerHeight : 800;
-    const cx = (screenW / 2 - vp.x) / vp.zoom - 50;
-    const cy = (screenH / 2 - vp.y) / vp.zoom - 50;
+    const cx = (screenW / 2 - vp.x) / vp.zoom - 120;
+    const cy = (screenH / 2 - vp.y) / vp.zoom - 40;
 
     const arrowObj: CanvasObject = {
-      id: 'arrow-' + Date.now(),
-      type: 'shape',
+      id: 'conn-' + Date.now(),
+      type: 'connector',
       x: cx,
       y: cy,
-      width: 120,
-      height: 50,
+      width: 240,
+      height: 80,
       rotation: 0,
       zIndex: Date.now(),
-      content: '→ Next',
+      content: '',
       style: {
-        fill: '#f1f5f9',
-        stroke: '#2563eb',
-        strokeWidth: 2,
-        borderRadius: 8,
-        textColor: '#1e293b',
-        fontSize: 13
+        stroke: this.store.penColor(),
+        strokeWidth: this.store.strokeWidth() === 4 ? 3 : this.store.strokeWidth(), // Slight adjustment for connectors
+        strokeStyle: 'solid',
+        textColor: this.store.penColor(),
+        fontSize: 14,
+        fontFamily: 'sans'
       },
       metadata: {
-        shapeType: 'rounded-rect'
+        connectorType: this.store.defaultConnectorType(),
+        fromPoint: { x: cx, y: cy + 50 },
+        toPoint: { x: cx + 240, y: cy },
+        arrowStart: this.store.defaultArrowStart(),
+        arrowEnd: this.store.defaultArrowEnd()
       }
     };
     this.store.addObject(arrowObj);
+    this.store.selectedObjectId.set(arrowObj.id);
     this.store.activeTool.set('select');
-    this.store.showToast('Added Connector / Flow Arrow', 'info');
+    this.store.showConnectorTray.set(false);
+    this.store.showToast('Added Connector Line', 'info');
+  }
+
+  toggleConnectorTray(): void {
+    this.store.showPenTray.set(false);
+    this.store.showTasksDocsModal.set(false);
+    this.showShapeMenu.set(false);
+    this.closeAllConnectorPopups();
+    if (!this.store.showConnectorTray()) {
+      this.store.activeTool.set('arrow');
+      this.store.showConnectorTray.set(true);
+    } else {
+      this.store.showConnectorTray.set(false);
+    }
   }
 
   triggerImageUpload(): void {

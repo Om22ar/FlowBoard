@@ -44,43 +44,104 @@ import {
       (pointercancel)="onPointerCancel($event)"
       (wheel)="onWheel($event)"
     >
-      <!-- Background Grid/Dots Pattern SVG -->
+      <!-- Background Grid/Dots/Lined/Graph Pattern SVG -->
       <svg class="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          @if (store.currentBoard().background === 'dots') {
+          <!-- DOTS PATTERN -->
+          @if (store.activeBackgroundConfig().pattern === 'dots') {
+            @let sz = store.activeBackgroundConfig().gridSize * store.currentBoard().viewport.zoom;
             <pattern
               id="grid-pattern"
-              [attr.width]="24 * store.currentBoard().viewport.zoom"
-              [attr.height]="24 * store.currentBoard().viewport.zoom"
+              [attr.width]="sz"
+              [attr.height]="sz"
               patternUnits="userSpaceOnUse"
-              [attr.patternTransform]="'translate(' + (store.currentBoard().viewport.x % (24 * store.currentBoard().viewport.zoom)) + ',' + (store.currentBoard().viewport.y % (24 * store.currentBoard().viewport.zoom)) + ')'"
+              [attr.patternTransform]="'translate(' + (store.currentBoard().viewport.x % sz) + ',' + (store.currentBoard().viewport.y % sz) + ')'"
             >
               <circle
-                [attr.cx]="12 * store.currentBoard().viewport.zoom"
-                [attr.cy]="12 * store.currentBoard().viewport.zoom"
-                [attr.r]="1.2 * Math.max(0.6, Math.min(1.5, store.currentBoard().viewport.zoom))"
-                class="fill-neutral-300 dark:fill-neutral-700"
+                [attr.cx]="sz / 2"
+                [attr.cy]="sz / 2"
+                [attr.r]="Math.max(0.75, (store.activeBackgroundConfig().lineThickness / 2) * store.currentBoard().viewport.zoom)"
+                [attr.fill]="store.activeBackgroundConfig().patternColor"
+                [attr.opacity]="store.activeBackgroundConfig().opacity"
               />
             </pattern>
-          } @else if (store.currentBoard().background === 'grid') {
+          }
+
+          <!-- GRID PATTERN -->
+          @else if (store.activeBackgroundConfig().pattern === 'grid') {
+            @let sz = store.activeBackgroundConfig().gridSize * store.currentBoard().viewport.zoom;
             <pattern
               id="grid-pattern"
-              [attr.width]="32 * store.currentBoard().viewport.zoom"
-              [attr.height]="32 * store.currentBoard().viewport.zoom"
+              [attr.width]="sz"
+              [attr.height]="sz"
               patternUnits="userSpaceOnUse"
-              [attr.patternTransform]="'translate(' + (store.currentBoard().viewport.x % (32 * store.currentBoard().viewport.zoom)) + ',' + (store.currentBoard().viewport.y % (32 * store.currentBoard().viewport.zoom)) + ')'"
+              [attr.patternTransform]="'translate(' + (store.currentBoard().viewport.x % sz) + ',' + (store.currentBoard().viewport.y % sz) + ')'"
             >
               <path
-                [attr.d]="'M ' + (32 * store.currentBoard().viewport.zoom) + ' 0 L 0 0 0 ' + (32 * store.currentBoard().viewport.zoom)"
+                [attr.d]="'M ' + sz + ' 0 L 0 0 0 ' + sz"
                 fill="none"
-                class="stroke-neutral-200/80 dark:stroke-neutral-800"
-                stroke-width="1"
+                [attr.stroke]="store.activeBackgroundConfig().patternColor"
+                [attr.stroke-width]="Math.max(0.5, store.activeBackgroundConfig().lineThickness * store.currentBoard().viewport.zoom)"
+                [attr.opacity]="store.activeBackgroundConfig().opacity"
+              />
+            </pattern>
+          }
+
+          <!-- LINED PAPER PATTERN -->
+          @else if (store.activeBackgroundConfig().pattern === 'lined') {
+            @let spacing = store.activeBackgroundConfig().spacing * store.currentBoard().viewport.zoom;
+            <pattern
+              id="grid-pattern"
+              [attr.width]="2000"
+              [attr.height]="spacing"
+              patternUnits="userSpaceOnUse"
+              [attr.patternTransform]="'translate(0,' + (store.currentBoard().viewport.y % spacing) + ')'"
+            >
+              <!-- Horizontal ruled line -->
+              <line
+                x1="0"
+                [attr.y1]="spacing"
+                x2="2000"
+                [attr.y2]="spacing"
+                [attr.stroke]="store.activeBackgroundConfig().patternColor"
+                [attr.stroke-width]="Math.max(0.75, store.activeBackgroundConfig().lineThickness * store.currentBoard().viewport.zoom)"
+                [attr.opacity]="store.activeBackgroundConfig().opacity"
+              />
+            </pattern>
+          }
+
+          <!-- GRAPH PAPER PATTERN (Dual Major & Minor Grid) -->
+          @else if (store.activeBackgroundConfig().pattern === 'graph') {
+            @let majorSz = store.activeBackgroundConfig().spacing * store.currentBoard().viewport.zoom;
+            @let minorSz = store.activeBackgroundConfig().gridSize * store.currentBoard().viewport.zoom;
+            <pattern
+              id="grid-pattern"
+              [attr.width]="majorSz"
+              [attr.height]="majorSz"
+              patternUnits="userSpaceOnUse"
+              [attr.patternTransform]="'translate(' + (store.currentBoard().viewport.x % majorSz) + ',' + (store.currentBoard().viewport.y % majorSz) + ')'"
+            >
+              <!-- Minor sub-grid -->
+              <path
+                [attr.d]="getGraphMinorSubgridPath(majorSz, minorSz)"
+                fill="none"
+                [attr.stroke]="store.activeBackgroundConfig().patternColor"
+                [attr.stroke-width]="Math.max(0.4, (store.activeBackgroundConfig().lineThickness * 0.5) * store.currentBoard().viewport.zoom)"
+                [attr.opacity]="store.activeBackgroundConfig().opacity * 0.55"
+              />
+              <!-- Major grid boundary -->
+              <path
+                [attr.d]="'M ' + majorSz + ' 0 L 0 0 0 ' + majorSz"
+                fill="none"
+                [attr.stroke]="store.activeBackgroundConfig().patternColor"
+                [attr.stroke-width]="Math.max(0.8, store.activeBackgroundConfig().lineThickness * store.currentBoard().viewport.zoom)"
+                [attr.opacity]="store.activeBackgroundConfig().opacity"
               />
             </pattern>
           }
         </defs>
 
-        @if (store.currentBoard().background !== 'blank') {
+        @if (store.activeBackgroundConfig().pattern !== 'plain' && store.activeBackgroundConfig().pattern !== 'image') {
           <rect width="100%" height="100%" fill="url(#grid-pattern)" />
         }
       </svg>
@@ -90,6 +151,21 @@ import {
         class="absolute origin-top-left will-change-transform"
         [style.transform]="'translate(' + store.currentBoard().viewport.x + 'px, ' + store.currentBoard().viewport.y + 'px) scale(' + store.currentBoard().viewport.zoom + ')'"
       >
+        <!-- 0. Locked Background Image Layer (Non-selectable reference layer) -->
+        @if (store.activeBackgroundConfig().imageUrl; as imgUrl) {
+          <div
+            class="absolute top-0 left-0 pointer-events-none select-none z-0"
+            [style.opacity]="store.activeBackgroundConfig().imageOpacity || 0.9"
+            [style.transform]="'translate(' + (store.activeBackgroundConfig().imagePositionX || 0) + 'px, ' + (store.activeBackgroundConfig().imagePositionY || 0) + 'px) scale(' + (store.activeBackgroundConfig().imageScale || 1) + ')'"
+          >
+            <img
+              [src]="imgUrl"
+              alt="Whiteboard background"
+              class="rounded-xl shadow-lg border border-black/10 pointer-events-none select-none max-w-none"
+              referrerpolicy="no-referrer"
+            />
+          </div>
+        }
         <!-- 1. HTML5 Vector Drawing Canvas (60 FPS strokes rendering) -->
         <canvas
           #drawingCanvas
@@ -107,6 +183,9 @@ import {
           <defs>
             <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
               <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+            </marker>
+            <marker id="arrowhead-start" markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto-start-reverse">
+              <polygon points="10 0, 0 3.5, 10 7" fill="#64748b" />
             </marker>
           </defs>
 
@@ -137,14 +216,28 @@ import {
           }
 
           @for (conn of connectorPaths(); track conn.id) {
-            <path
-              [attr.d]="conn.path"
-              [attr.stroke]="conn.stroke"
-              [attr.stroke-width]="conn.strokeWidth"
-              fill="none"
-              stroke-linecap="round"
-              marker-end="url(#arrowhead)"
-            />
+            <g 
+              class="cursor-pointer group" 
+              (pointerdown)="onConnectorPointerDown(conn.id, $event)"
+              style="pointer-events: auto;"
+            >
+              <!-- Hidden wider hit area for easier selection -->
+              <path
+                [attr.d]="conn.path"
+                stroke="transparent"
+                stroke-width="16"
+                fill="none"
+              />
+              <path
+                [attr.d]="conn.path"
+                [attr.stroke]="conn.stroke"
+                [attr.stroke-width]="conn.strokeWidth"
+                fill="none"
+                stroke-linecap="round"
+                [attr.marker-end]="conn.arrowEnd ? 'url(#arrowhead)' : ''"
+                [attr.marker-start]="conn.arrowStart ? 'url(#arrowhead-start)' : ''"
+              />
+            </g>
           }
         </svg>
 
@@ -294,6 +387,111 @@ import {
                       {{ obj.metadata?.statusText || 'To Do' }}
                     </span>
                     <span class="font-mono">{{ obj.metadata?.dueDate || 'Today' }}</span>
+                  </div>
+                </div>
+              }
+
+              <!-- DOCUMENT CARD OBJECT (Exact match to Image 1) -->
+              @else if (obj.type === 'doc' || obj.metadata?.isDocCard) {
+                <div
+                  class="w-full h-full bg-white dark:bg-[#1a1b1e] rounded-2xl shadow-xl border border-neutral-200/90 dark:border-neutral-800 flex flex-col overflow-hidden relative select-text"
+                >
+                  <!-- Window Header Bar (Blue doc icon, title, star, ▶ New, •••, ⤢, ✕) -->
+                  <div class="px-4 py-2.5 bg-white dark:bg-[#1a1b1e] border-b border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between gap-2 shrink-0">
+                    <div class="flex items-center gap-2 min-w-0">
+                      <mat-icon class="text-blue-500 text-base shrink-0">description</mat-icon>
+                      <span class="font-bold text-xs text-neutral-800 dark:text-neutral-200 truncate">
+                        {{ obj.metadata?.docTitle || 'testing' }}
+                      </span>
+                      <button
+                        (click)="toggleDocStar(obj, $event)"
+                        class="text-neutral-400 hover:text-amber-400 transition-colors p-0.5 cursor-pointer"
+                      >
+                        <mat-icon class="text-xs">star_border</mat-icon>
+                      </button>
+                    </div>
+
+                    <div class="flex items-center gap-1.5 shrink-0">
+                      <!-- ▶ New Badge -->
+                      <span class="px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 font-bold text-[10px] flex items-center gap-1">
+                        <mat-icon class="text-[10px]">play_circle</mat-icon>
+                        <span>New</span>
+                      </span>
+                      <button class="p-1 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded text-neutral-400 transition-colors cursor-pointer">
+                        <mat-icon class="text-xs">more_horiz</mat-icon>
+                      </button>
+                      <button class="p-1 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded text-neutral-400 transition-colors cursor-pointer">
+                        <mat-icon class="text-xs">open_in_full</mat-icon>
+                      </button>
+                      <button
+                        (click)="store.deleteObjectById(obj.id); $event.stopPropagation()"
+                        class="p-1 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded text-neutral-400 hover:text-rose-500 transition-colors cursor-pointer"
+                      >
+                        <mat-icon class="text-xs">close</mat-icon>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Document Canvas Body -->
+                  <div class="flex-1 p-6 relative flex flex-col overflow-y-auto">
+                    <!-- Top Icon Box -->
+                    <div class="w-8 h-8 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/80 flex items-center justify-center text-neutral-500 mb-3 shrink-0">
+                      <mat-icon class="text-base">description</mat-icon>
+                    </div>
+
+                    <!-- Link Task or Doc button -->
+                    <button class="text-[11px] font-semibold text-neutral-400 hover:text-blue-600 flex items-center gap-1 mb-2.5 self-start cursor-pointer transition-colors">
+                      <mat-icon class="text-xs">link</mat-icon>
+                      <span>Link Task or Doc</span>
+                    </button>
+
+                    <!-- Document Title Heading (Bold & Large) -->
+                    <h2 class="text-2xl md:text-3xl font-extrabold text-neutral-900 dark:text-white tracking-tight mb-1.5 leading-snug">
+                      {{ obj.metadata?.docTitle || 'testing' }}
+                    </h2>
+
+                    <!-- Author & Timestamp Line -->
+                    <div class="flex items-center gap-2 text-xs text-neutral-400 mb-5">
+                      <div class="relative w-5 h-5 rounded-full bg-purple-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
+                        <span>O</span>
+                        <span class="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-neutral-900"></span>
+                      </div>
+                      <span class="font-medium text-neutral-700 dark:text-neutral-300">{{ obj.metadata?.docAuthor || 'omar' }}</span>
+                      <span>•</span>
+                      <span>Last updated {{ obj.metadata?.docUpdatedAt || 'Today at 9:24 pm' }}</span>
+                    </div>
+
+                    <!-- Document Content Body -->
+                    <textarea
+                      [value]="obj.content || 'Hello'"
+                      (input)="onObjectContentChange(obj.id, $event)"
+                      placeholder="Type your notes or document text here..."
+                      class="flex-1 w-full bg-transparent resize-none focus:outline-none text-sm text-neutral-800 dark:text-neutral-200 leading-relaxed font-sans"
+                    ></textarea>
+
+                    <!-- Right Vertical Action Bar (Image 1) -->
+                    <div class="absolute right-4 top-6 flex flex-col items-center gap-3.5 text-neutral-400">
+                      <button title="Comment" class="hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer">
+                        <mat-icon class="text-base">chat_bubble_outline</mat-icon>
+                      </button>
+                      <button title="Typography" class="hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer">
+                        <mat-icon class="text-base">format_size</mat-icon>
+                      </button>
+                      <button title="Relationships" class="hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer">
+                        <mat-icon class="text-base">swap_horiz</mat-icon>
+                      </button>
+                      <button title="Copy Link" class="hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer">
+                        <mat-icon class="text-base">link</mat-icon>
+                      </button>
+                      <button title="Download / Export" class="hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer">
+                        <mat-icon class="text-base">file_download</mat-icon>
+                      </button>
+                    </div>
+
+                    <!-- Bottom Right Sparkle Icon (Image 1) -->
+                    <div class="absolute bottom-3 right-3 w-6 h-6 rounded-full bg-gradient-to-tr from-purple-500 via-pink-500 to-amber-400 p-0.5 flex items-center justify-center shadow-xs">
+                      <mat-icon class="text-white text-xs">auto_awesome</mat-icon>
+                    </div>
                   </div>
                 </div>
               }
@@ -466,7 +664,7 @@ export class CanvasWorkspace {
   readonly connectorPaths = computed(() => {
     const objs = this.store.currentBoard().objects;
     const connectors = objs.filter((o) => o.type === 'connector');
-    const result: { id: string; path: string; stroke: string; strokeWidth: number }[] = [];
+    const result: { id: string; path: string; stroke: string; strokeWidth: number; arrowStart: boolean; arrowEnd: boolean }[] = [];
 
     for (const c of connectors) {
       const fromObj = objs.find((o) => o.id === c.metadata?.fromId);
@@ -484,7 +682,9 @@ export class CanvasWorkspace {
         id: c.id,
         path: pathInfo.pathData,
         stroke: c.style.stroke || '#64748b',
-        strokeWidth: c.style.strokeWidth || 2
+        strokeWidth: c.style.strokeWidth || 2,
+        arrowStart: !!c.metadata?.arrowStart,
+        arrowEnd: c.metadata?.arrowEnd !== false
       });
     }
 
@@ -530,6 +730,30 @@ export class CanvasWorkspace {
     if (obj.metadata?.shapeType === 'rounded-rect') return obj.style.borderRadius || 12;
     if (obj.metadata?.shapeType === 'diamond') return 4;
     return obj.style.borderRadius || 4;
+  }
+
+  getGraphMinorSubgridPath(majorSize: number, minorSize: number): string {
+    let d = '';
+    const step = Math.max(4, minorSize);
+    for (let x = step; x < majorSize; x += step) {
+      d += `M ${x} 0 L ${x} ${majorSize} `;
+    }
+    for (let y = step; y < majorSize; y += step) {
+      d += `M 0 ${y} L ${majorSize} ${y} `;
+    }
+    return d;
+  }
+
+  toggleDocStar(obj: CanvasObject, event: Event): void {
+    event.stopPropagation();
+    this.store.showToast('Document saved to starred items', 'info');
+  }
+
+  updateDocTitle(obj: CanvasObject, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.store.updateObject(obj.id, {
+      metadata: { ...obj.metadata, docTitle: input.value }
+    });
   }
 
   // --- Keyboard Shortcuts Listeners ---
@@ -723,6 +947,11 @@ export class CanvasWorkspace {
       return;
     }
 
+    if (tool === 'connector' || tool === 'arrow') {
+      this.startConnectorDrawing(canvasX, canvasY);
+      return;
+    }
+
     // Default select tool on canvas empty area clears selection
     this.store.selectedObjectId.set(null);
   }
@@ -819,6 +1048,11 @@ export class CanvasWorkspace {
       return;
     }
 
+    if (this.store.isConnectorDrawing() && this.store.selectedObjectId()) {
+      this.updateConnectorDrawing(canvasX, canvasY);
+      return;
+    }
+
     // Drawing stroke
     if (this.store.isDrawing()) {
       const stroke = this.store.currentStroke();
@@ -872,6 +1106,11 @@ export class CanvasWorkspace {
         this.store.addStroke(stroke);
       }
       this.store.currentStroke.set(null);
+    }
+
+    if (this.store.isConnectorDrawing()) {
+      this.store.isConnectorDrawing.set(false);
+      this.store.activeTool.set('select');
     }
   }
 
@@ -1286,5 +1525,61 @@ export class CanvasWorkspace {
       metadata: { codeLanguage: 'TypeScript' }
     };
     this.store.addObject(obj);
+  }
+
+  private startConnectorDrawing(x: number, y: number): void {
+    const id = 'conn-' + Date.now();
+    const conn: CanvasObject = {
+      id,
+      type: 'connector',
+      x,
+      y,
+      width: 1,
+      height: 1,
+      rotation: 0,
+      zIndex: Date.now(),
+      content: '',
+      style: {
+        stroke: this.store.penColor(),
+        strokeWidth: this.store.strokeWidth() === 4 ? 3 : this.store.strokeWidth(),
+        strokeStyle: 'solid',
+        textColor: this.store.penColor(),
+        fontSize: 14,
+        fontFamily: 'sans'
+      },
+      metadata: {
+        connectorType: this.store.defaultConnectorType(),
+        fromPoint: { x, y },
+        toPoint: { x, y },
+        arrowStart: this.store.defaultArrowStart(),
+        arrowEnd: this.store.defaultArrowEnd()
+      }
+    };
+
+    this.store.addObject(conn);
+    this.store.selectedObjectId.set(id);
+    this.store.isConnectorDrawing.set(true);
+    this.store.showConnectorTray.set(false);
+  }
+
+  private updateConnectorDrawing(x: number, y: number): void {
+    const id = this.store.selectedObjectId();
+    if (!id) return;
+
+    const obj = this.store.currentBoard().objects.find((o) => o.id === id);
+    if (!obj || obj.type !== 'connector') return;
+
+    this.store.updateObject(id, {
+      metadata: {
+        ...obj.metadata,
+        toPoint: { x, y }
+      }
+    });
+  }
+
+  onConnectorPointerDown(id: string, e: PointerEvent): void {
+    e.stopPropagation();
+    this.store.selectedObjectId.set(id);
+    this.store.activeTool.set('select');
   }
 }

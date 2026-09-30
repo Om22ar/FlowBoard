@@ -6,6 +6,7 @@ import {
   CompanionState,
   ConnectionEventLog,
   ConnectionTestResult,
+  DEFAULT_BACKGROUND_CONFIG,
   DrawingPoint,
   DrawingStroke,
   LaserMark,
@@ -14,7 +15,9 @@ import {
   StylusHardwareState,
   ToolType,
   Viewport,
-  Whiteboard
+  Whiteboard,
+  WhiteboardBackgroundConfig,
+  WhiteboardBackgroundPattern
 } from '../models/whiteboard.models';
 import { TEMPLATES } from '../data/templates';
 
@@ -58,12 +61,19 @@ export class WhiteboardStore {
   readonly strokeLineStyle = signal<'drawn' | 'dashed' | 'dotted' | 'solid'>('drawn');
   readonly showPenTray = signal<boolean>(false);
 
+  // Default connector configuration
+  readonly defaultConnectorType = signal<'curved' | 'straight' | 'orthogonal'>('straight');
+  readonly defaultArrowStart = signal<boolean>(false);
+  readonly defaultArrowEnd = signal<boolean>(true);
+  readonly showConnectorTray = signal<boolean>(false);
+
   // Canvas selection & interaction
   readonly selectedObjectId = signal<string | null>(null);
   readonly hoveredObjectId = signal<string | null>(null);
   readonly isDraggingObject = signal<boolean>(false);
   readonly isPanning = signal<boolean>(false);
   readonly isDrawing = signal<boolean>(false);
+  readonly isConnectorDrawing = signal<boolean>(false);
   readonly currentStroke = signal<DrawingStroke | null>(null);
 
   // Laser Pointer & Spotlight
@@ -79,6 +89,8 @@ export class WhiteboardStore {
   readonly showShortcutsModal = signal<boolean>(false);
   readonly showShareModal = signal<boolean>(false);
   readonly showTemplateModal = signal<boolean>(false);
+  readonly showTasksDocsModal = signal<boolean>(false);
+  readonly showBackgroundModal = signal<boolean>(false);
   readonly showSimulatedPhone = signal<boolean>(false);
   readonly showMiniMap = signal<boolean>(true);
   readonly isHighContrast = signal<boolean>(false);
@@ -521,6 +533,91 @@ export class WhiteboardStore {
     const board = this.currentBoard();
     const minZ = Math.min(0, ...board.objects.map((o) => o.zIndex || 0));
     this.updateObject(id, { zIndex: minZ - 1 });
+  }
+
+  // --- Whiteboard Background Management ---
+  readonly activeBackgroundConfig = computed<WhiteboardBackgroundConfig>(() => {
+    const board = this.currentBoard();
+    if (board.backgroundConfig) {
+      return board.backgroundConfig;
+    }
+    // Fallback if backgroundConfig is not set yet
+    if (board.background === 'dark') {
+      return {
+        pattern: 'dots',
+        color: '#121212',
+        patternColor: '#334155',
+        gridSize: 24,
+        lineThickness: 1,
+        opacity: 0.8,
+        spacing: 32,
+        isLocked: true
+      };
+    }
+    if (board.background === 'grid') {
+      return {
+        pattern: 'grid',
+        color: '#ffffff',
+        patternColor: '#e2e8f0',
+        gridSize: 32,
+        lineThickness: 1,
+        opacity: 0.85,
+        spacing: 32,
+        isLocked: true
+      };
+    }
+    if (board.background === 'blank' || board.background === 'plain') {
+      return {
+        pattern: 'plain',
+        color: '#ffffff',
+        patternColor: '#e2e8f0',
+        gridSize: 24,
+        lineThickness: 1,
+        opacity: 0.8,
+        spacing: 32,
+        isLocked: true
+      };
+    }
+    return DEFAULT_BACKGROUND_CONFIG;
+  });
+
+  updateBackgroundConfig(config: Partial<WhiteboardBackgroundConfig>): void {
+    const current = this.activeBackgroundConfig();
+    const merged: WhiteboardBackgroundConfig = { ...current, ...config };
+    this.updateCurrentBoard((b) => ({
+      ...b,
+      background: merged.pattern,
+      backgroundConfig: merged
+    }));
+  }
+
+  setBackgroundPattern(pattern: WhiteboardBackgroundPattern): void {
+    this.updateBackgroundConfig({ pattern });
+  }
+
+  setBackgroundColor(color: string): void {
+    this.updateBackgroundConfig({ color });
+  }
+
+  setBackgroundImage(imageUrl: string, options?: Partial<WhiteboardBackgroundConfig>): void {
+    this.updateBackgroundConfig({
+      pattern: 'image',
+      imageUrl,
+      imageFit: options?.imageFit || 'contain',
+      imageScale: options?.imageScale ?? 1.0,
+      imageOpacity: options?.imageOpacity ?? 0.9,
+      isLocked: options?.isLocked ?? true
+    });
+    this.showToast('Background image applied and locked', 'success');
+  }
+
+  applyBackgroundPreset(preset: WhiteboardBackgroundConfig): void {
+    this.updateBackgroundConfig(preset);
+    this.showToast(`Applied ${preset.pattern} background preset`, 'success');
+  }
+
+  toggleBackgroundModal(): void {
+    this.showBackgroundModal.update((v) => !v);
   }
 
   // --- Drawing / Strokes ---

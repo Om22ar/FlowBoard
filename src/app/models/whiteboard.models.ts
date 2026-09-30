@@ -14,6 +14,7 @@ export type ToolType =
   | 'mindmap'
   | 'frame'
   | 'task'
+  | 'doc'
   | 'table'
   | 'code'
   | 'comment';
@@ -26,6 +27,7 @@ export type CanvasObjectType =
   | 'mindmap'
   | 'frame'
   | 'task'
+  | 'doc'
   | 'table'
   | 'code'
   | 'comment'
@@ -107,11 +109,24 @@ export interface CanvasObject {
     frameTitle?: string;
     // Task / Checklist
     completed?: boolean;
+    taskCode?: string;
+    taskTitle?: string;
     statusText?: string;
     statusColor?: string;
     dueDate?: string;
     assignee?: string;
+    priority?: string;
+    url?: string;
     checklistItems?: { id: string; text: string; done: boolean }[];
+    // Doc Card
+    isDocCard?: boolean;
+    docTitle?: string;
+    docFolder?: string;
+    docAuthor?: string;
+    docUpdatedAt?: string;
+    docExcerpt?: string;
+    docIcon?: string;
+    docIconColor?: string;
     // Table
     rows?: number;
     cols?: number;
@@ -133,6 +148,50 @@ export interface Viewport {
   zoom: number; // 0.1 to 4.0
 }
 
+export type WhiteboardBackgroundPattern =
+  | 'plain'
+  | 'dots'
+  | 'grid'
+  | 'lined'
+  | 'graph'
+  | 'image'
+  | 'dark'
+  | 'blank';
+
+export interface WhiteboardBackgroundConfig {
+  pattern: WhiteboardBackgroundPattern;
+  color: string;
+  patternColor: string;
+  gridSize: number;
+  lineThickness: number;
+  opacity: number;
+  spacing: number;
+  imageUrl?: string;
+  imageScale?: number;
+  imagePositionX?: number;
+  imagePositionY?: number;
+  imageOpacity?: number;
+  imageFit?: 'cover' | 'contain' | 'tile' | 'custom';
+  isLocked?: boolean;
+}
+
+export const DEFAULT_BACKGROUND_CONFIG: WhiteboardBackgroundConfig = {
+  pattern: 'dots',
+  color: '#ffffff',
+  patternColor: '#cbd5e1',
+  gridSize: 24,
+  lineThickness: 1,
+  opacity: 0.8,
+  spacing: 32,
+  imageUrl: '',
+  imageScale: 1.0,
+  imagePositionX: 0,
+  imagePositionY: 0,
+  imageOpacity: 0.9,
+  imageFit: 'contain',
+  isLocked: true
+};
+
 export interface Collaborator {
   id: string;
   name: string;
@@ -149,7 +208,8 @@ export interface Whiteboard {
   objects: CanvasObject[];
   strokes: DrawingStroke[];
   viewport: Viewport;
-  background: 'dots' | 'grid' | 'blank' | 'dark';
+  background: WhiteboardBackgroundPattern;
+  backgroundConfig?: WhiteboardBackgroundConfig;
   collaborators: Collaborator[];
   createdAt: number;
   updatedAt: number;

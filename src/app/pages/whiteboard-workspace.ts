@@ -5,7 +5,7 @@ import { WhiteboardStore } from '../services/whiteboard-store';
 import { CompanionSyncService } from '../services/companion-sync.service';
 import { TopToolbar } from '../components/top-toolbar';
 import { FloatingToolDock } from '../components/floating-tool-dock';
-import { Whiteboard } from '../components/whiteboard';
+import { CanvasWorkspace } from '../components/canvas-workspace';
 import { BottomFloatingToolbar } from '../components/bottom-floating-toolbar';
 import { Minimap } from '../components/minimap';
 import { GalaxyCompanionModal } from '../components/galaxy-companion-modal';
@@ -16,6 +16,8 @@ import { ShareModal } from '../components/share-modal';
 import { ShortcutsModal } from '../components/shortcuts-modal';
 import { DashboardView } from '../components/dashboard-view';
 import { TouchpadFloatingPad } from '../components/touchpad-floating-pad';
+import { TasksDocsPanel } from '../components/tasks-docs-panel';
+import { WhiteboardBackgroundModal } from '../components/whiteboard-background-modal';
 
 @Component({
   selector: 'app-whiteboard-workspace',
@@ -25,7 +27,7 @@ import { TouchpadFloatingPad } from '../components/touchpad-floating-pad';
     MatIconModule,
     TopToolbar,
     FloatingToolDock,
-    Whiteboard,
+    CanvasWorkspace,
     BottomFloatingToolbar,
     Minimap,
     GalaxyCompanionModal,
@@ -35,7 +37,9 @@ import { TouchpadFloatingPad } from '../components/touchpad-floating-pad';
     ShareModal,
     ShortcutsModal,
     DashboardView,
-    TouchpadFloatingPad
+    TouchpadFloatingPad,
+    TasksDocsPanel,
+    WhiteboardBackgroundModal
   ],
   template: `
     <div class="h-screen w-screen flex flex-col overflow-hidden bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 font-sans select-none relative">
@@ -46,7 +50,7 @@ import { TouchpadFloatingPad } from '../components/touchpad-floating-pad';
         <!-- Canvas Layout with Floating Tool Dock & Infinite Canvas -->
         <div class="flex-1 flex overflow-hidden relative">
           <app-floating-tool-dock></app-floating-tool-dock>
-          <app-whiteboard class="flex-1"></app-whiteboard>
+          <app-canvas-workspace class="flex-1"></app-canvas-workspace>
           <app-bottom-floating-toolbar></app-bottom-floating-toolbar>
           <app-minimap></app-minimap>
           <app-touchpad-floating-pad></app-touchpad-floating-pad>
@@ -63,6 +67,8 @@ import { TouchpadFloatingPad } from '../components/touchpad-floating-pad';
       <app-templates-modal></app-templates-modal>
       <app-share-modal></app-share-modal>
       <app-shortcuts-modal></app-shortcuts-modal>
+      <app-tasks-docs-panel></app-tasks-docs-panel>
+      <app-whiteboard-background-modal></app-whiteboard-background-modal>
 
       <!-- Live Floating Notification Toast (Displays Ping results, S Pen triggers, and status) -->
       @if (store.activeToast(); as toast) {

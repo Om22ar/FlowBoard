@@ -117,6 +117,96 @@ import { ExportService } from '../services/export.service';
 
               <div class="h-px bg-neutral-200 dark:bg-neutral-800 my-1"></div>
 
+              <div class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 flex items-center justify-between">
+                <span>Whiteboard Background</span>
+                <span class="text-[9px] font-mono text-blue-600 dark:text-blue-400 uppercase">{{ store.activeBackgroundConfig().pattern }}</span>
+              </div>
+
+              <!-- Whiteboard Background Modal Option -->
+              <button
+                (click)="openBackgroundModal()"
+                class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-neutral-700 dark:text-neutral-200 hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left w-full cursor-pointer group"
+              >
+                <div class="w-7 h-7 rounded-md bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                  <mat-icon class="text-base">wallpaper</mat-icon>
+                </div>
+                <div class="flex flex-col min-w-0 flex-1">
+                  <div class="flex items-center justify-between">
+                    <span class="font-medium">Background Settings...</span>
+                  </div>
+                  <span class="text-[10px] text-neutral-400 truncate">Pattern, grid, lined paper, custom image</span>
+                </div>
+              </button>
+
+              <!-- Quick Pattern Switcher in File Menu -->
+              <div class="px-2 py-1.5 bg-neutral-50 dark:bg-neutral-800/60 rounded-lg mx-1 my-0.5 flex items-center justify-between">
+                <span class="text-[10px] font-medium text-neutral-500">Quick pattern:</span>
+                <div class="flex items-center gap-1">
+                  <button
+                    (click)="store.setBackgroundPattern('plain')"
+                    title="Plain Color"
+                    class="w-5.5 h-5.5 rounded-md border flex items-center justify-center transition-colors cursor-pointer"
+                    [class.border-blue-600]="store.activeBackgroundConfig().pattern === 'plain'"
+                    [class.bg-blue-100]="store.activeBackgroundConfig().pattern === 'plain'"
+                    [class.dark:bg-blue-900/60]="store.activeBackgroundConfig().pattern === 'plain'"
+                    [class.border-neutral-200]="store.activeBackgroundConfig().pattern !== 'plain'"
+                    [class.dark:border-neutral-700]="store.activeBackgroundConfig().pattern !== 'plain'"
+                  >
+                    <mat-icon class="text-[10px] text-neutral-600 dark:text-neutral-300">crop_free</mat-icon>
+                  </button>
+                  <button
+                    (click)="store.setBackgroundPattern('dots')"
+                    title="Dotted Grid"
+                    class="w-5.5 h-5.5 rounded-md border flex items-center justify-center transition-colors cursor-pointer"
+                    [class.border-blue-600]="store.activeBackgroundConfig().pattern === 'dots'"
+                    [class.bg-blue-100]="store.activeBackgroundConfig().pattern === 'dots'"
+                    [class.dark:bg-blue-900/60]="store.activeBackgroundConfig().pattern === 'dots'"
+                    [class.border-neutral-200]="store.activeBackgroundConfig().pattern !== 'dots'"
+                    [class.dark:border-neutral-700]="store.activeBackgroundConfig().pattern !== 'dots'"
+                  >
+                    <mat-icon class="text-[10px] text-neutral-600 dark:text-neutral-300">more_horiz</mat-icon>
+                  </button>
+                  <button
+                    (click)="store.setBackgroundPattern('grid')"
+                    title="Grid Paper"
+                    class="w-5.5 h-5.5 rounded-md border flex items-center justify-center transition-colors cursor-pointer"
+                    [class.border-blue-600]="store.activeBackgroundConfig().pattern === 'grid'"
+                    [class.bg-blue-100]="store.activeBackgroundConfig().pattern === 'grid'"
+                    [class.dark:bg-blue-900/60]="store.activeBackgroundConfig().pattern === 'grid'"
+                    [class.border-neutral-200]="store.activeBackgroundConfig().pattern !== 'grid'"
+                    [class.dark:border-neutral-700]="store.activeBackgroundConfig().pattern !== 'grid'"
+                  >
+                    <mat-icon class="text-[10px] text-neutral-600 dark:text-neutral-300">grid_4x4</mat-icon>
+                  </button>
+                  <button
+                    (click)="store.setBackgroundPattern('lined')"
+                    title="Lined Paper"
+                    class="w-5.5 h-5.5 rounded-md border flex items-center justify-center transition-colors cursor-pointer"
+                    [class.border-blue-600]="store.activeBackgroundConfig().pattern === 'lined'"
+                    [class.bg-blue-100]="store.activeBackgroundConfig().pattern === 'lined'"
+                    [class.dark:bg-blue-900/60]="store.activeBackgroundConfig().pattern === 'lined'"
+                    [class.border-neutral-200]="store.activeBackgroundConfig().pattern !== 'lined'"
+                    [class.dark:border-neutral-700]="store.activeBackgroundConfig().pattern !== 'lined'"
+                  >
+                    <mat-icon class="text-[10px] text-neutral-600 dark:text-neutral-300">format_align_justify</mat-icon>
+                  </button>
+                  <button
+                    (click)="store.setBackgroundPattern('graph')"
+                    title="Graph Paper"
+                    class="w-5.5 h-5.5 rounded-md border flex items-center justify-center transition-colors cursor-pointer"
+                    [class.border-blue-600]="store.activeBackgroundConfig().pattern === 'graph'"
+                    [class.bg-blue-100]="store.activeBackgroundConfig().pattern === 'graph'"
+                    [class.dark:bg-blue-900/60]="store.activeBackgroundConfig().pattern === 'graph'"
+                    [class.border-neutral-200]="store.activeBackgroundConfig().pattern !== 'graph'"
+                    [class.dark:border-neutral-700]="store.activeBackgroundConfig().pattern !== 'graph'"
+                  >
+                    <mat-icon class="text-[10px] text-neutral-600 dark:text-neutral-300">grid_on</mat-icon>
+                  </button>
+                </div>
+              </div>
+
+              <div class="h-px bg-neutral-200 dark:bg-neutral-800 my-1"></div>
+
               <!-- New Board -->
               <button
                 (click)="createNewBoard()"
@@ -156,30 +246,8 @@ import { ExportService } from '../services/export.service';
         </div>
       </div>
 
-      <!-- Zone 2: Canvas Navigation, Undo/Redo & Zoom -->
+      <!-- Zone 2: Canvas Navigation & Zoom -->
       <div class="flex items-center gap-1 sm:gap-2">
-        <!-- History Controls -->
-        <div class="flex items-center bg-neutral-100 dark:bg-neutral-800 rounded-lg p-0.5">
-          <button
-            (click)="store.undo()"
-            [disabled]="!store.canUndo()"
-            title="Undo (Ctrl+Z)"
-            class="p-1.5 rounded-md text-neutral-700 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-          >
-            <mat-icon class="text-base">undo</mat-icon>
-          </button>
-          <button
-            (click)="store.redo()"
-            [disabled]="!store.canRedo()"
-            title="Redo (Ctrl+Y)"
-            class="p-1.5 rounded-md text-neutral-700 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-          >
-            <mat-icon class="text-base">redo</mat-icon>
-          </button>
-        </div>
-
-        <div class="h-4 w-px bg-neutral-200 dark:bg-neutral-800 hidden sm:block"></div>
-
         <!-- Zoom Controls -->
         <div class="flex items-center bg-neutral-100 dark:bg-neutral-800 rounded-lg p-0.5">
           <button
@@ -329,6 +397,11 @@ export class TopToolbar {
   toggleFileMenu(e: Event): void {
     e.stopPropagation();
     this.isFileMenuOpen.update((v) => !v);
+  }
+
+  openBackgroundModal(): void {
+    this.isFileMenuOpen.set(false);
+    this.store.showBackgroundModal.set(true);
   }
 
   onDocumentClick(e: MouseEvent): void {
