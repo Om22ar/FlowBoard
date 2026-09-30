@@ -21,6 +21,7 @@ import {
 } from '../models/whiteboard.models';
 import {
   computeConnectorPath,
+  pointsToSvgPath,
   renderStrokeOnContext
 } from '../utils/canvas-math';
 
@@ -36,6 +37,7 @@ import {
       [class.cursor-grabbing]="store.isPanning() || isSpacePanning()"
       [class.cursor-crosshair]="isDrawingTool(store.activeTool())"
       [class.cursor-default]="store.activeTool() === 'select'"
+      [style.background-color]="store.currentBoard().background === 'dark' ? '#000000' : ''"
       (pointerdown)="onPointerDown($event)"
       (pointermove)="onPointerMove($event)"
       (pointerup)="onPointerUp($event)"
@@ -96,7 +98,7 @@ import {
           [attr.height]="canvasHeight()"
         ></canvas>
 
-        <!-- 2. Connectors SVG Layer -->
+        <!-- 2. Connectors & Vector Drawing Strokes SVG Layer -->
         <svg
           class="absolute top-0 left-0 overflow-visible pointer-events-none z-10"
           [attr.width]="canvasWidth()"
@@ -107,6 +109,33 @@ import {
               <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
             </marker>
           </defs>
+
+          <!-- Permanent Board Vector Strokes -->
+          @for (stroke of store.currentBoard().strokes; track stroke.id) {
+            <path
+              [attr.d]="pointsToSvgPath(stroke.points, stroke.smoothing)"
+              [attr.stroke]="stroke.color || '#ef4444'"
+              [attr.stroke-width]="stroke.width || 4"
+              [attr.opacity]="stroke.opacity"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              fill="none"
+            />
+          }
+
+          <!-- Live In-Progress Remote / Local Active Stroke -->
+          @if (store.currentStroke(); as cur) {
+            <path
+              [attr.d]="pointsToSvgPath(cur.points, cur.smoothing)"
+              [attr.stroke]="cur.color || '#ef4444'"
+              [attr.stroke-width]="cur.width || 4"
+              [attr.opacity]="cur.opacity"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              fill="none"
+            />
+          }
+
           @for (conn of connectorPaths(); track conn.id) {
             <path
               [attr.d]="conn.path"
@@ -401,6 +430,7 @@ export class CanvasWorkspace {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   readonly Math = Math;
+  readonly pointsToSvgPath = pointsToSvgPath;
 
   @ViewChild('viewportContainer') viewportContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('drawingCanvas') drawingCanvas!: ElementRef<HTMLCanvasElement>;
@@ -417,6 +447,8 @@ export class CanvasWorkspace {
   private initialPinchDist = 0;
   private initialZoom = 1;
   private panStart = { x: 0, y: 0 };
+  private lastPointerPoint: { x: number; y: number; time: number } | null = null;
+  private lastCalculatedPressure = 0.5;
   private activeTransform: {
     objId: string;
     mode: 'move' | 'resize' | 'rotate';
@@ -613,17 +645,31 @@ export class CanvasWorkspace {
     }
 
     // Touchscreen / Stylus Drawing
-    // Palm Rejection: If pointerType === 'pen', we immediately draw without triggering canvas drag
+    // Palm Rejection & Hardware Stylus Telemetry:
+    if (e.pointerType === 'pen') {
+      this.store.recordStylusPointerEvent(e);
+      if (this.store.autoSwitchToPenOnStylus() && this.store.activeTool() === 'select') {
+        this.store.activeTool.set('pen');
+      }
+    }
+
     const tool = this.store.activeTool();
     if (this.isDrawingTool(tool)) {
       if (tool === 'eraser') {
         this.store.eraseStrokesAt(canvasX, canvasY, 24);
       } else {
         this.store.isDrawing.set(true);
-        const pressure = e.pressure && e.pressure > 0 ? e.pressure : 0.5;
+        this.lastPointerPoint = { x: e.clientX, y: e.clientY, time: Date.now() };
+        this.lastCalculatedPressure = e.pressure && e.pressure > 0 ? e.pressure : 0.5;
+
+        let initialPressure = this.lastCalculatedPressure;
+        if (this.store.touchpadDrawingMode() && (e.pointerType === 'mouse' || e.pointerType === 'touch')) {
+          initialPressure = this.store.touchpadSensitivity() === 'expressive' ? 0.45 : 0.6;
+        }
+
         const newStroke: DrawingStroke = {
-          id: 'stroke-' + Date.now(),
-          points: [{ x: canvasX, y: canvasY, pressure, time: Date.now() }],
+          id: 'stroke-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5),
+          points: [{ x: canvasX, y: canvasY, pressure: initialPressure, time: Date.now() }],
           color: this.store.penColor(),
           width: this.store.strokeWidth(),
           opacity: tool === 'highlighter' ? 0.45 : this.store.penOpacity(),
@@ -682,6 +728,10 @@ export class CanvasWorkspace {
   }
 
   onPointerMove(e: PointerEvent): void {
+    if (e.pointerType === 'pen') {
+      this.store.recordStylusPointerEvent(e);
+    }
+
     if (this.activePointers.has(e.pointerId)) {
       this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
     }
@@ -773,8 +823,30 @@ export class CanvasWorkspace {
     if (this.store.isDrawing()) {
       const stroke = this.store.currentStroke();
       if (stroke) {
-        const pressure = e.pressure && e.pressure > 0 ? e.pressure : 0.5;
+        let pressure = e.pressure && e.pressure > 0 ? e.pressure : 0.5;
+
+        // Dynamic speed-to-pressure curve for laptop touchpads & finger writing
+        if (this.store.touchpadDrawingMode() && (e.pointerType === 'mouse' || e.pointerType === 'touch') && this.lastPointerPoint) {
+          const dt = Math.max(1, Date.now() - this.lastPointerPoint.time);
+          const dist = Math.hypot(e.clientX - this.lastPointerPoint.x, e.clientY - this.lastPointerPoint.y);
+          const speed = dist / dt;
+
+          let targetPressure = 0.5;
+          if (this.store.touchpadSensitivity() === 'expressive') {
+            targetPressure = Math.max(0.2, Math.min(0.95, 0.85 - (speed * 0.18)));
+          } else if (this.store.touchpadSensitivity() === 'light') {
+            targetPressure = Math.max(0.15, Math.min(0.7, 0.6 - (speed * 0.15)));
+          } else {
+            targetPressure = 0.6;
+          }
+
+          pressure = this.lastCalculatedPressure * 0.65 + targetPressure * 0.35;
+          this.lastCalculatedPressure = pressure;
+        }
+
+        this.lastPointerPoint = { x: e.clientX, y: e.clientY, time: Date.now() };
         stroke.points.push({ x: canvasX, y: canvasY, pressure, time: Date.now() });
+        this.store.currentStroke.set({ ...stroke });
         this.renderAllStrokes(this.store.currentBoard().strokes, stroke);
       }
     } else if (this.store.activeTool() === 'eraser' && (e.buttons === 1 || e.pointerType === 'pen')) {

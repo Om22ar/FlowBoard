@@ -13,10 +13,10 @@ import { WhiteboardStore } from '../services/whiteboard-store';
       @if (!isExpanded()) {
         <button
           (click)="isExpanded.set(true)"
-          title="Open Mini-map"
-          class="w-9 h-9 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 shadow-md flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 transition-all cursor-pointer"
+          title="Open Navigator"
+          class="w-10 h-10 rounded-xl bg-neutral-900/90 border border-white/10 shadow-xl flex items-center justify-center text-white hover:bg-neutral-800 transition-all cursor-pointer backdrop-blur-md"
         >
-          <mat-icon class="text-base">map</mat-icon>
+          <mat-icon class="text-xl">map</mat-icon>
         </button>
       }
 
@@ -89,7 +89,7 @@ import { WhiteboardStore } from '../services/whiteboard-store';
 export class Minimap {
   readonly store = inject(WhiteboardStore);
   readonly Math = Math;
-  readonly isExpanded = signal<boolean>(true);
+  readonly isExpanded = signal<boolean>(false);
 
   // Computed content bounds
   readonly bounds = computed(() => {

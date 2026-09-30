@@ -110,30 +110,51 @@ import { WhiteboardStore } from '../services/whiteboard-store';
 
       <!-- Zone 3: Companion, Presentation, Collab & Share -->
       <div class="flex items-center gap-2">
-        <!-- Galaxy Note9 Companion Quick Pill Button -->
+        <!-- Pen & Galaxy Hardware Connection Hub Quick Pill -->
         <button
           (click)="store.showCompanionModal.set(true)"
-          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer"
-          [class.bg-blue-50]="store.companionState().connected"
-          [class.border-blue-300]="store.companionState().connected"
-          [class.text-blue-700]="store.companionState().connected"
+          class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer shadow-xs"
+          [class.bg-emerald-50]="store.companionState().connected"
+          [class.dark:bg-emerald-950/40]="store.companionState().connected"
+          [class.border-emerald-300]="store.companionState().connected"
+          [class.dark:border-emerald-800]="store.companionState().connected"
+          [class.text-emerald-800]="store.companionState().connected"
+          [class.dark:text-emerald-300]="store.companionState().connected"
           [class.bg-neutral-50]="!store.companionState().connected"
+          [class.dark:bg-neutral-800]="!store.companionState().connected"
           [class.border-neutral-200]="!store.companionState().connected"
+          [class.dark:border-neutral-700]="!store.companionState().connected"
           [class.text-neutral-700]="!store.companionState().connected"
-          title="Samsung Galaxy Note9 S Pen Companion Mode"
+          [class.dark:text-neutral-200]="!store.companionState().connected"
+          title="Hardware Diagnostics & S Pen Companion Connection"
         >
           <span class="relative flex h-2 w-2">
             @if (store.companionState().connected) {
               <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             } @else {
-              <span class="relative inline-flex rounded-full h-2 w-2 bg-neutral-400"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
             }
           </span>
-          <mat-icon class="text-sm scale-90">smartphone</mat-icon>
-          <span class="hidden lg:inline">
-            {{ store.companionState().connected ? 'Note9 Connected' : 'Connect Galaxy' }}
-          </span>
+
+          <div class="flex items-center gap-1">
+            <mat-icon class="text-sm scale-90">edit</mat-icon>
+            @if (store.companionState().connected) {
+              <span class="font-semibold">Note9 S Pen</span>
+              <span class="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-900/60 px-1 py-0.5 rounded">
+                {{ store.companionState().latencyMs }}ms
+              </span>
+            } @else {
+              <span>Pen &amp; Remote Hub</span>
+            }
+          </div>
+
+          <!-- Physical Stylus badge if detected on screen -->
+          @if (store.hardwareStylus().detected) {
+            <span class="hidden md:inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-mono" title="Touchscreen Stylus Hardware Active">
+              Stylus {{ Math.round(store.hardwareStylus().pressure * 100) }}%
+            </span>
+          }
         </button>
 
         <!-- Presentation Mode -->

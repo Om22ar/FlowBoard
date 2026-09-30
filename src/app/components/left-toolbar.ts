@@ -301,6 +301,24 @@ import { WhiteboardStore } from '../services/whiteboard-store';
       </button>
 
       <div class="mt-auto flex flex-col items-center gap-1.5">
+        <!-- Laptop TouchPad / Finger Drawing Mode Toggle -->
+        <button
+          (click)="toggleTouchpadDrawing()"
+          title="Laptop TouchPad & Finger Direct Drawing Mode"
+          class="w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer relative"
+          [class.bg-emerald-50]="store.touchpadDrawingMode() || store.showTouchpadOverlay()"
+          [class.text-emerald-600]="store.touchpadDrawingMode() || store.showTouchpadOverlay()"
+          [class.dark:bg-emerald-950]="store.touchpadDrawingMode() || store.showTouchpadOverlay()"
+          [class.dark:text-emerald-400]="store.touchpadDrawingMode() || store.showTouchpadOverlay()"
+          [class.text-neutral-600]="!store.touchpadDrawingMode() && !store.showTouchpadOverlay()"
+          [class.hover:bg-neutral-100]="!store.touchpadDrawingMode() && !store.showTouchpadOverlay()"
+        >
+          <mat-icon class="text-xl">laptop_chromebook</mat-icon>
+          @if (store.touchpadDrawingMode()) {
+            <span class="absolute bottom-1 right-1 w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          }
+        </button>
+
         <!-- Templates Library -->
         <button
           (click)="store.showTemplateModal.set(true)"
@@ -331,6 +349,13 @@ export class LeftToolbar {
 
   toggleSimulatedPhone(): void {
     this.store.showSimulatedPhone.update((v) => !v);
+  }
+
+  toggleTouchpadDrawing(): void {
+    this.store.showTouchpadOverlay.update((v) => !v);
+    if (!this.isDrawingTool(this.store.activeTool())) {
+      this.store.activeTool.set('pen');
+    }
   }
 
   isDrawingTool(tool: ToolType): boolean {

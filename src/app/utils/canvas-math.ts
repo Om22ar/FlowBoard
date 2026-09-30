@@ -196,3 +196,31 @@ export function renderStrokeOnContext(
 
   ctx.restore();
 }
+
+/**
+ * Converts drawing stroke points into a smooth SVG Path string for instant vector rendering
+ */
+export function pointsToSvgPath(points: DrawingPoint[], smoothing = true): string {
+  if (!points || points.length === 0) return '';
+  if (points.length === 1) {
+    const p = points[0];
+    return `M ${p.x - 1} ${p.y} A 1 1 0 1 0 ${p.x + 1} ${p.y} Z`;
+  }
+  if (!smoothing || points.length === 2) {
+    let d = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+      d += ` L ${points[i].x} ${points[i].y}`;
+    }
+    return d;
+  }
+
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length - 1; i++) {
+    const midX = (points[i].x + points[i + 1].x) / 2;
+    const midY = (points[i].y + points[i + 1].y) / 2;
+    d += ` Q ${points[i].x} ${points[i].y} ${midX} ${midY}`;
+  }
+  const last = points[points.length - 1];
+  d += ` L ${last.x} ${last.y}`;
+  return d;
+}

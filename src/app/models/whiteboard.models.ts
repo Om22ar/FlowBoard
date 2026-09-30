@@ -170,7 +170,16 @@ export type CompanionAction =
   | 'RESET_ZOOM'
   | 'CLEAR_LASER'
   | 'TOGGLE_PRESENT'
-  | 'COLOR_SELECT';
+  | 'COLOR_SELECT'
+  | 'PING_TEST'
+  | 'TEST_SIGNAL'
+  | 'LASER_MOVE'
+  | 'STROKE_WIDTH'
+  | 'REMOTE_DRAW_START'
+  | 'REMOTE_DRAW_MOVE'
+  | 'REMOTE_DRAW_END'
+  | 'REMOTE_STROKE_COMMIT'
+  | 'REMOTE_ERASE';
 
 export interface SPenMappings {
   singlePress: CompanionAction;
@@ -194,9 +203,87 @@ export interface CompanionState {
   lastPing: number;
 }
 
+export interface StylusHardwareState {
+  detected: boolean;
+  pointerType: 'pen' | 'touch' | 'mouse' | 'none';
+  pressure: number; // 0 to 1
+  tiltX: number;
+  tiltY: number;
+  twist: number;
+  barrelButton: boolean;
+  eraserTip: boolean;
+  lastActiveTimestamp: number;
+  samplesCount: number;
+}
+
+export interface ConnectionTestResult {
+  status: 'idle' | 'testing' | 'connected' | 'error';
+  roundTripMs: number;
+  serverTimestamp: number;
+  activePairingCode: string;
+  message: string;
+  testedAt: string;
+}
+
+export interface ConnectionEventLog {
+  id: string;
+  time: string;
+  source: 'spen' | 'touch' | 'system' | 'ping';
+  action: string;
+  latencyMs?: number;
+  success: boolean;
+  detail?: string;
+}
+
 export interface LaserMark {
   x: number;
   y: number;
   timestamp: number;
   color: string;
+}
+
+export type WsClientRole = 'host' | 'device';
+export type WsConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
+
+export interface ConnectedPeer {
+  id: string;
+  role: WsClientRole;
+  code: string;
+  deviceName: string;
+  phoneBattery?: number;
+  spenBattery?: number;
+  connectedAt: number;
+  lastPingMs?: number;
+}
+
+export type WsMessageType =
+  | 'JOIN'
+  | 'PEER_JOINED'
+  | 'PEER_LEFT'
+  | 'INIT_STATE'
+  | 'DRAW_START'
+  | 'DRAW_LIVE'
+  | 'DRAW_END'
+  | 'DRAW_COMMIT'
+  | 'STATE_CHANGE'
+  | 'SPEN_EVENT'
+  | 'COMMAND'
+  | 'PING'
+  | 'PONG'
+  | 'PRESENCE_UPDATE';
+
+export interface WsMessagePayload {
+  type: WsMessageType;
+  id?: string;
+  code?: string;
+  senderRole?: WsClientRole;
+  senderId?: string;
+  timestamp: number;
+  payload?: Record<string, unknown>;
+  action?: CompanionAction;
+  point?: DrawingPoint;
+  stroke?: DrawingStroke;
+  peers?: ConnectedPeer[];
+  clientTime?: number;
+  serverTime?: number;
 }
