@@ -50,11 +50,13 @@ export class WhiteboardStore {
   // Active tools
   readonly activeTool = signal<ToolType>('select');
   readonly selectedShapeType = signal<ShapeType>('rounded-rect');
-  readonly penColor = signal<string>('#0f172a');
-  readonly strokeWidth = signal<number>(3);
+  readonly penColor = signal<string>('#1e293b');
+  readonly strokeWidth = signal<number>(4);
   readonly penOpacity = signal<number>(1);
   readonly strokeSmoothing = signal<boolean>(true);
   readonly pressureSensitivity = signal<boolean>(true);
+  readonly strokeLineStyle = signal<'drawn' | 'dashed' | 'dotted' | 'solid'>('drawn');
+  readonly showPenTray = signal<boolean>(false);
 
   // Canvas selection & interaction
   readonly selectedObjectId = signal<string | null>(null);

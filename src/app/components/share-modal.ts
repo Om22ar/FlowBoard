@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { WhiteboardStore } from '../services/whiteboard-store';
+import { ExportService } from '../services/export.service';
 
 @Component({
   selector: 'app-share-modal',
@@ -101,6 +102,7 @@ import { WhiteboardStore } from '../services/whiteboard-store';
 })
 export class ShareModal {
   readonly store = inject(WhiteboardStore);
+  private readonly exportService = inject(ExportService);
   readonly selectedRole = signal<string>('editor');
   readonly copyText = signal<string>('');
 
@@ -128,39 +130,14 @@ export class ShareModal {
     a.download = `${this.store.currentBoard().name}.flowboard.json`;
     a.click();
     URL.revokeObjectURL(url);
+    this.store.showToast('Exported whiteboard JSON backup', 'success');
   }
 
   exportSvg(): void {
-    const board = this.store.currentBoard();
-    let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" style="background:#ffffff">`;
-    // Add strokes
-    for (const s of board.strokes) {
-      if (s.points.length > 1) {
-        const d = s.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-        svgContent += `<path d="${d}" stroke="${s.color}" stroke-width="${s.width}" fill="none" stroke-linecap="round" />`;
-      }
-    }
-    // Add shapes
-    for (const o of board.objects) {
-      svgContent += `<rect x="${o.x}" y="${o.y}" width="${o.width}" height="${o.height}" fill="${o.style.fill || '#f8fafc'}" stroke="${o.style.stroke || '#000000'}" rx="${o.style.borderRadius || 4}" />`;
-      if (o.content) {
-        svgContent += `<text x="${o.x + 10}" y="${o.y + 24}" font-family="sans-serif" font-size="${o.style.fontSize || 13}" fill="${o.style.textColor || '#000'}">${o.content.slice(0, 40)}</text>`;
-      }
-    }
-    svgContent += `</svg>`;
-
-    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${this.store.currentBoard().name}.svg`;
-    a.click();
-    URL.revokeObjectURL(url);
+    this.exportService.exportAsSvg();
   }
 
   exportPrint(): void {
-    if (typeof window !== 'undefined') {
-      window.print();
-    }
+    this.exportService.exportAsPdf();
   }
 }

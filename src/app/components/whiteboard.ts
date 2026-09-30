@@ -9,15 +9,20 @@ import {
   NgZone,
   effect,
   signal,
-  computed
+  computed,
+  PLATFORM_ID
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import * as fabric from 'fabric';
 import { WhiteboardStore } from '../services/whiteboard-store';
 import { InputService, NormalizedInputEvent } from '../services/input-service';
 import { CanvasObject, DrawingStroke } from '../models/whiteboard.models';
 import { Subscription } from 'rxjs';
+import { ensureFabricDOMGuards } from '../utils/fabric-guards';
+
+// Initialize defensive guards for Fabric Canvas DOM managers
+ensureFabricDOMGuards();
 
 /**
  * Extended interfaces to support Infinite Workspace rendering in Fabric.js.
@@ -82,7 +87,13 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
   @ViewChild('canvasElement') canvasElement!: ElementRef<HTMLCanvasElement>;
   @ViewChild('container') container!: ElementRef<HTMLDivElement>;
 
-  private canvas!: fabric.Canvas;
+  private readonly platformId = inject(PLATFORM_ID);
+  private readonly isBrowser = isPlatformBrowser(this.platformId);
+  private canvas: fabric.Canvas | null = null;
+  private isDestroyed = false;
+  private resizeObserver: ResizeObserver | null = null;
+  private nativeListeners: { element: HTMLElement; type: string; handler: (e: Event) => void }[] = [];
+
   readonly store = inject(WhiteboardStore);
   private readonly inputService = inject(InputService);
   private readonly ngZone = inject(NgZone);
@@ -103,13 +114,28 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
   readonly eraserCursorPos = signal<{ x: number; y: number } | null>(null);
   readonly isEraserActive = computed(() => this.store.activeTool() === 'eraser');
   readonly eraserRadius = computed(() => Math.max(20, this.store.strokeWidth()));
-  readonly zoomPercent = () => Math.round((this.canvas?.getZoom() || 1) * 100);
+
+  private isCanvasActive(): boolean {
+    if (!this.isBrowser || this.isDestroyed || !this.canvas) return false;
+    const c = this.canvas as fabric.Canvas & { disposed?: boolean };
+    return !c.disposed;
+  }
+
+  readonly zoomPercent = () => {
+    if (!this.isCanvasActive() || !this.canvas) return 100;
+    try {
+      return Math.round(this.canvas.getZoom() * 100);
+    } catch {
+      return 100;
+    }
+  };
 
   constructor() {
     // Reactive sync with store objects
     effect(() => {
       const board = this.store.currentBoard();
       this.ngZone.runOutsideAngular(() => {
+        if (!this.isCanvasActive()) return;
         this.syncSceneGraph(board.objects, board.strokes);
       });
     });
@@ -118,18 +144,17 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
     effect(() => {
       const tool = this.store.activeTool();
       this.ngZone.runOutsideAngular(() => {
-        if (this.canvas) {
-          this.canvas.isDrawingMode = false;
-          this.canvas.selection = tool === 'select';
-          if (tool === 'hand') {
-            this.canvas.defaultCursor = 'grab';
-          } else if (tool === 'eraser') {
-            this.canvas.defaultCursor = 'crosshair';
-          } else if (tool === 'pen' || tool === 'pencil' || tool === 'highlighter') {
-            this.canvas.defaultCursor = 'crosshair';
-          } else {
-            this.canvas.defaultCursor = 'default';
-          }
+        if (!this.isCanvasActive() || !this.canvas) return;
+        this.canvas.isDrawingMode = false;
+        this.canvas.selection = tool === 'select';
+        if (tool === 'hand') {
+          this.canvas.defaultCursor = 'grab';
+        } else if (tool === 'eraser') {
+          this.canvas.defaultCursor = 'crosshair';
+        } else if (tool === 'pen' || tool === 'pencil' || tool === 'highlighter') {
+          this.canvas.defaultCursor = 'crosshair';
+        } else {
+          this.canvas.defaultCursor = 'default';
         }
       });
       if (tool !== 'eraser') {
@@ -139,6 +164,7 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
+    if (!this.isBrowser) return;
     this.ngZone.runOutsideAngular(() => {
       this.initFabric();
       this.setupNativeInputListeners();
@@ -146,18 +172,30 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
 
     this.subscription.add(
       this.inputService.inputEvents$.subscribe((event) => {
+        if (this.isDestroyed) return;
         this.ngZone.run(() => this.handleNormalizedInput(event));
       })
     );
   }
 
   private initFabric(): void {
-    const el = this.canvasElement.nativeElement;
-    const parent = this.container.nativeElement;
+    if (this.isDestroyed) return;
+    const el = this.canvasElement?.nativeElement;
+    const parent = this.container?.nativeElement;
+    if (!el || !parent) return;
+
+    // Clean up residual attributes from any prior canvas mounting
+    if (el.hasAttribute('data-fabric')) {
+      el.removeAttribute('data-fabric');
+      el.classList.remove('lower-canvas');
+    }
+
+    const initialWidth = parent.clientWidth || 1200;
+    const initialHeight = parent.clientHeight || 800;
 
     this.canvas = new fabric.Canvas(el, {
-      width: parent.clientWidth,
-      height: parent.clientHeight,
+      width: initialWidth,
+      height: initialHeight,
       selection: true,
       preserveObjectStacking: true,
       renderOnAddRemove: true,
@@ -165,6 +203,7 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
     });
 
     this.canvas.on('mouse:wheel', (opt) => {
+      if (!this.isCanvasActive() || !this.canvas) return;
       const delta = opt.e.deltaY;
       let zoom = this.canvas.getZoom();
       zoom *= 0.999 ** delta;
@@ -179,6 +218,7 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
 
     // Object modification sync
     this.canvas.on('object:modified', (opt) => {
+      if (this.isDestroyed) return;
       const fObj = opt.target as unknown as InfiniteCanvasObject;
       if (!fObj || !fObj.id) return;
 
@@ -193,14 +233,17 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
 
     // Selection sync
     this.canvas.on('selection:created', (opt) => {
+      if (this.isDestroyed) return;
       const fObj = opt.selected?.[0] as unknown as InfiniteCanvasObject;
       if (fObj && fObj.id) this.store.selectedObjectId.set(fObj.id);
     });
     this.canvas.on('selection:updated', (opt) => {
+      if (this.isDestroyed) return;
       const fObj = opt.selected?.[0] as unknown as InfiniteCanvasObject;
       if (fObj && fObj.id) this.store.selectedObjectId.set(fObj.id);
     });
     this.canvas.on('selection:cleared', () => {
+      if (this.isDestroyed) return;
       this.store.selectedObjectId.set(null);
     });
 
@@ -210,13 +253,14 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
   }
 
   private syncSceneGraph(objects: CanvasObject[], strokes: DrawingStroke[]): void {
-    if (!this.canvas) return;
+    if (!this.isCanvasActive() || !this.canvas) return;
+    const canvas = this.canvas;
 
     // 1. Identify objects to remove
     const currentIds = new Set([...objects.map(o => o.id), ...strokes.map(s => s.id)]);
     for (const [id, fObj] of this.objectMap.entries()) {
       if (!currentIds.has(id)) {
-        this.canvas.remove(fObj);
+        canvas.remove(fObj);
         this.objectMap.delete(id);
       }
     }
@@ -228,7 +272,7 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
         fObj = this.createFabricObject(obj);
         if (fObj) {
           (fObj as InfiniteCanvasObject).id = obj.id;
-          this.canvas.add(fObj);
+          canvas.add(fObj);
           this.objectMap.set(obj.id, fObj);
         }
       } else {
@@ -251,12 +295,12 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
           objectCaching: false
         });
         (fPath as unknown as InfiniteCanvasObject).id = stroke.id;
-        this.canvas.add(fPath);
+        canvas.add(fPath);
         this.objectMap.set(stroke.id, fPath);
       }
     });
 
-    this.canvas.requestRenderAll();
+    canvas.requestRenderAll();
   }
 
   private createFabricObject(obj: CanvasObject): fabric.Object | undefined {
@@ -324,23 +368,38 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
   }
 
   private setupNativeInputListeners(): void {
+    if (!this.canvas) return;
     const el = this.canvas.upperCanvasEl;
+    if (!el) return;
+
     const events = ['pointerdown', 'pointermove', 'pointerup', 'pointercancel'];
     events.forEach(type => {
-      el.addEventListener(type, (e: Event) => {
+      const handler = (e: Event) => {
+        if (!this.isCanvasActive() || !this.canvas) return;
         const pe = e as PointerEvent;
         const vpt = this.canvas.viewportTransform || [1, 0, 0, 1, 0, 0];
         this.inputService.processPointerEvent(pe, el, { x: vpt[4], y: vpt[5], zoom: this.canvas.getZoom() });
-      }, { passive: false });
+      };
+      el.addEventListener(type, handler, { passive: false });
+      this.nativeListeners.push({ element: el, type, handler });
     });
 
-    const ro = new ResizeObserver(() => {
+    this.resizeObserver = new ResizeObserver(() => {
       this.ngZone.runOutsideAngular(() => {
-        this.canvas.setDimensions({ width: this.container.nativeElement.clientWidth, height: this.container.nativeElement.clientHeight });
-        this.canvas.requestRenderAll();
+        if (!this.isCanvasActive() || !this.canvas || !this.container?.nativeElement) return;
+        const width = this.container.nativeElement.clientWidth;
+        const height = this.container.nativeElement.clientHeight;
+        if (width > 0 && height > 0) {
+          try {
+            this.canvas.setDimensions({ width, height });
+            this.canvas.requestRenderAll();
+          } catch {
+            // Guard against disposed fabric canvas
+          }
+        }
       });
     });
-    ro.observe(this.container.nativeElement);
+    this.resizeObserver.observe(this.container.nativeElement);
   }
 
   private handleNormalizedInput(event: NormalizedInputEvent): void {
@@ -357,12 +416,14 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
   }
 
   private onDown(event: NormalizedInputEvent): void {
+    if (!this.isCanvasActive() || !this.canvas) return;
+    const canvas = this.canvas;
     const tool = this.store.activeTool();
     const isPanAction = tool === 'hand' || event.button === 1 || event.button === 2;
     if (isPanAction) {
       this.isPanning = true;
       this.lastPanPos = { x: event.originalEvent.clientX, y: event.originalEvent.clientY };
-      this.canvas.selection = false;
+      canvas.selection = false;
       return;
     }
 
@@ -399,7 +460,7 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
     const objectsErased = this.store.eraseObjectsAt(canvasX, canvasY, radius, false);
 
     // 3. Fallback: check Fabric object under pointer
-    if (!strokesErased && !objectsErased && originalEvent) {
+    if (!strokesErased && !objectsErased && originalEvent && this.isCanvasActive() && this.canvas) {
       const target = this.canvas.findTarget(originalEvent) as unknown as InfiniteCanvasObject;
       if (target && target.id) {
         this.store.deleteObjectById(target.id);
@@ -442,7 +503,7 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
       });
     }
 
-    if (this.isPanning) {
+    if (this.isPanning && this.isCanvasActive() && this.canvas) {
       const dx = event.originalEvent.clientX - this.lastPanPos.x;
       const dy = event.originalEvent.clientY - this.lastPanPos.y;
       this.canvas.relativePan(new fabric.Point(dx, dy));
@@ -461,7 +522,9 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
   private onUp(event: NormalizedInputEvent): void {
     if (this.isPanning) {
       this.isPanning = false;
-      this.canvas.selection = this.store.activeTool() === 'select';
+      if (this.isCanvasActive() && this.canvas) {
+        this.canvas.selection = this.store.activeTool() === 'select';
+      }
     }
     if (this.isErasing) {
       this.isErasing = false;
@@ -523,21 +586,32 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
   private startStroke(event: NormalizedInputEvent): void {
     const { canvasX, canvasY, pressure } = event;
     this.pathData = [`M ${canvasX} ${canvasY}`];
+
+    const isHighlighter = this.store.activeTool() === 'highlighter';
+    const effectivePressure = this.store.pressureSensitivity() ? (pressure || 1) : 1;
+    const baseWidth = isHighlighter ? Math.max(18, this.store.strokeWidth() * 3) : this.store.strokeWidth();
+    const lineStyle = this.store.strokeLineStyle();
+    const dashArray = lineStyle === 'dashed' ? [10, 10] : lineStyle === 'dotted' ? [2, 6] : undefined;
+
     this.currentPath = new fabric.Path(this.pathData.join(' '), {
       stroke: this.store.penColor(),
-      strokeWidth: this.store.strokeWidth() * (pressure || 1),
+      strokeWidth: baseWidth * effectivePressure,
+      opacity: isHighlighter ? 0.45 : this.store.penOpacity(),
+      strokeDashArray: dashArray,
       fill: '',
-      strokeLineCap: 'round',
+      strokeLineCap: isHighlighter ? 'square' : 'round',
       strokeLineJoin: 'round',
       selectable: false,
       evented: false,
       objectCaching: false
     });
-    this.canvas.add(this.currentPath);
+    if (this.isCanvasActive() && this.canvas) {
+      this.canvas.add(this.currentPath);
+    }
   }
 
   private updateStroke(event: NormalizedInputEvent): void {
-    if (!this.currentPath) return;
+    if (!this.currentPath || !this.isCanvasActive() || !this.canvas) return;
     this.pathData.push(`L ${event.canvasX} ${event.canvasY}`);
     this.currentPath.set({ path: this.parsePathData(this.pathData) } as Partial<fabric.Path>);
     this.canvas.requestRenderAll();
@@ -558,7 +632,9 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
         smoothing: true
       };
       this.store.addStroke(stroke);
-      this.canvas.remove(this.currentPath);
+      if (this.isCanvasActive() && this.canvas) {
+        this.canvas.remove(this.currentPath);
+      }
       this.currentPath = null;
     }
   }
@@ -570,13 +646,55 @@ export class Whiteboard implements AfterViewInit, OnDestroy {
     });
   }
 
-  zoomIn(): void { this.canvas.setZoom(this.canvas.getZoom() * 1.1); this.canvas.requestRenderAll(); }
-  zoomOut(): void { this.canvas.setZoom(this.canvas.getZoom() * 0.9); this.canvas.requestRenderAll(); }
-  resetViewport(): void { this.canvas.setViewportTransform([1, 0, 0, 1, 0, 0]); this.canvas.setZoom(1); this.canvas.requestRenderAll(); }
+  zoomIn(): void {
+    if (!this.isCanvasActive() || !this.canvas) return;
+    this.canvas.setZoom(this.canvas.getZoom() * 1.1);
+    this.canvas.requestRenderAll();
+  }
+
+  zoomOut(): void {
+    if (!this.isCanvasActive() || !this.canvas) return;
+    this.canvas.setZoom(this.canvas.getZoom() * 0.9);
+    this.canvas.requestRenderAll();
+  }
+
+  resetViewport(): void {
+    if (!this.isCanvasActive() || !this.canvas) return;
+    this.canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+    this.canvas.setZoom(1);
+    this.canvas.requestRenderAll();
+  }
 
   ngOnDestroy(): void {
+    this.isDestroyed = true;
     this.subscription.unsubscribe();
-    if (this.canvas) this.canvas.dispose();
+
+    // Disconnect resize observer immediately
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
+
+    // Remove all native pointer event listeners
+    for (const { element, type, handler } of this.nativeListeners) {
+      element.removeEventListener(type, handler);
+    }
+    this.nativeListeners = [];
+
+    // Safely dispose fabric canvas instance
+    if (this.canvas) {
+      const c = this.canvas as fabric.Canvas & { disposed?: boolean };
+      this.canvas = null;
+      try {
+        if (!c.disposed) {
+          c.dispose();
+        }
+      } catch {
+        // Prevent uncaught errors during teardown
+      }
+    }
+
+    this.objectMap.clear();
   }
 }
 

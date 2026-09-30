@@ -5,9 +5,10 @@ import {
   ViewChild,
   inject,
   signal,
-  AfterViewInit
+  AfterViewInit,
+  PLATFORM_ID
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { WhiteboardStore } from '../services/whiteboard-store';
 import { DrawingPoint } from '../models/whiteboard.models';
@@ -178,6 +179,8 @@ import { DrawingPoint } from '../models/whiteboard.models';
 })
 export class TouchpadFloatingPad implements AfterViewInit {
   readonly store = inject(WhiteboardStore);
+  private readonly platformId = inject(PLATFORM_ID);
+  private readonly isBrowser = isPlatformBrowser(this.platformId);
 
   @ViewChild('miniCanvas') miniCanvasRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild('padContainer') padContainerRef?: ElementRef<HTMLDivElement>;
@@ -198,11 +201,12 @@ export class TouchpadFloatingPad implements AfterViewInit {
   private lastPressure = 0.5;
 
   ngAfterViewInit(): void {
+    if (!this.isBrowser) return;
     setTimeout(() => this.initCanvas(), 100);
   }
 
   private initCanvas(): void {
-    if (!this.miniCanvasRef) return;
+    if (!this.isBrowser || !this.miniCanvasRef) return;
     const canvas = this.miniCanvasRef.nativeElement;
     canvas.width = canvas.offsetWidth * (window.devicePixelRatio || 1);
     canvas.height = canvas.offsetHeight * (window.devicePixelRatio || 1);
